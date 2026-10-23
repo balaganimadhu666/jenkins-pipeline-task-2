@@ -1,0 +1,12 @@
+node_modules
+npm-debug.log
+test-results.xml
+.git
+.gitignore
+Jenkinsfile
+jenkins
+docker-compose.yml
+test
+README.md
+INTERVIEW_QUESTIONS.md
+screenshots
