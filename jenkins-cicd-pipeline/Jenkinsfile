@@ -10,9 +10,6 @@ pipeline {
     }
 
     // Triggers: run on every commit.
-    //  - githubPush() reacts to a GitHub webhook (instant, needs Jenkins reachable from the internet)
-    //  - pollSCM() is the fallback: Jenkins checks the repo every ~2 minutes (works on localhost)
-    // Note: triggers declared here become active after the first build has run once.
     triggers {
         githubPush()
         pollSCM('H/2 * * * *')
@@ -33,19 +30,19 @@ pipeline {
         stage('Checkout') {
             steps {
                 checkout scm
-                sh 'node --version && npm --version && docker --version'
+                bat 'node --version && npm --version && docker --version'
             }
         }
 
         stage('Install dependencies') {
             steps {
-                sh 'npm ci'
+                bat 'npm ci'
             }
         }
 
         stage('Test') {
             steps {
-                sh 'npm run test:ci'
+                bat 'npm run test:ci'
             }
             post {
                 always {
@@ -57,7 +54,7 @@ pipeline {
 
         stage('Build Docker image') {
             steps {
-                sh 'docker build -t ${APP_NAME}:${IMAGE_TAG} -t ${APP_NAME}:latest .'
+                bat "docker build -t ${APP_NAME}:${IMAGE_TAG} -t ${APP_NAME}:latest ."
             }
         }
 
@@ -67,13 +64,13 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: 'dockerhub-creds',
                                                   usernameVariable: 'DH_USER',
                                                   passwordVariable: 'DH_TOKEN')]) {
-                    // Single quotes: the shell reads the secrets, Groovy never interpolates them
-                    sh '''
-                        echo "$DH_TOKEN" | docker login -u "$DH_USER" --password-stdin
-                        docker tag ${APP_NAME}:${IMAGE_TAG} $DH_USER/${APP_NAME}:${IMAGE_TAG}
-                        docker tag ${APP_NAME}:${IMAGE_TAG} $DH_USER/${APP_NAME}:latest
-                        docker push $DH_USER/${APP_NAME}:${IMAGE_TAG}
-                        docker push $DH_USER/${APP_NAME}:latest
+                    // Using single quotes so Jenkins safely passes secrets to Windows CMD
+                    bat '''
+                        echo %DH_TOKEN%| docker login -u "%DH_USER%" --password-stdin
+                        docker tag %APP_NAME%:%IMAGE_TAG% %DH_USER%/%APP_NAME%:%IMAGE_TAG%
+                        docker tag %APP_NAME%:%IMAGE_TAG% %DH_USER%/%APP_NAME%:latest
+                        docker push %DH_USER%/%APP_NAME%:%IMAGE_TAG%
+                        docker push %DH_USER%/%APP_NAME%:latest
                         docker logout
                     '''
                 }
@@ -83,30 +80,21 @@ pipeline {
         stage('Deploy') {
             steps {
                 // Replace the running container with the freshly built image
-                sh '''
-                    docker rm -f ${APP_NAME} || true
-                    docker run -d --name ${APP_NAME} --restart unless-stopped \
-                        -p ${HOST_PORT}:3000 ${APP_NAME}:${IMAGE_TAG}
-                '''
+                bat """
+                    docker rm -f ${APP_NAME} || exit 0
+                    docker run -d --name ${APP_NAME} --restart unless-stopped -p ${HOST_PORT}:3000 ${APP_NAME}:${IMAGE_TAG}
+                """
             }
         }
 
         stage('Verify deployment') {
             steps {
-                // Health check from inside the container (works even though Jenkins itself runs in Docker)
-                sh '''
-                    for i in $(seq 1 10); do
-                        if docker exec ${APP_NAME} wget -qO- http://localhost:3000/health; then
-                            echo
-                            echo "Deployment is healthy"
-                            exit 0
-                        fi
-                        sleep 2
-                    done
-                    echo "Health check failed"
-                    docker logs ${APP_NAME}
-                    exit 1
-                '''
+                // Health check from inside the container using Jenkins native retry block
+                retry(10) {
+                    sleep(time: 2, unit: 'SECONDS')
+                    bat "docker exec ${APP_NAME} wget -qO- http://localhost:3000/health"
+                }
+                echo "Deployment is healthy"
             }
         }
     }
@@ -120,7 +108,7 @@ pipeline {
         }
         always {
             // Remove dangling images left by earlier builds
-            sh 'docker image prune -f || true'
+            bat 'docker image prune -f || exit 0'
         }
     }
 }
