@@ -23,7 +23,7 @@ pipeline {
     environment {
         APP_NAME  = 'jenkins-demo-app'
         IMAGE_TAG = "${env.BUILD_NUMBER}"
-        HOST_PORT = '3000'
+        HOST_PORT = '3001'
     }
 
     stages {
