@@ -36,25 +36,34 @@ pipeline {
 
         stage('Install dependencies') {
             steps {
-                bat 'npm install'
+                // Tells Jenkins to navigate into your subfolder before installing
+                dir('jenkins-cicd-pipeline') {
+                    bat 'npm install'
+                }
             }
         }
 
         stage('Test') {
             steps {
-                bat 'npm run test:ci'
+                dir('jenkins-cicd-pipeline') {
+                    bat 'npm run test:ci'
+                }
             }
             post {
                 always {
-                    // Shows test results/trends on the Jenkins dashboard
-                    junit allowEmptyResults: true, testResults: 'test-results.xml'
+                    dir('jenkins-cicd-pipeline') {
+                        // Shows test results/trends on the Jenkins dashboard
+                        junit allowEmptyResults: true, testResults: 'test-results.xml'
+                    }
                 }
             }
         }
 
         stage('Build Docker image') {
             steps {
-                bat "docker build -t ${APP_NAME}:${IMAGE_TAG} -t ${APP_NAME}:latest ."
+                dir('jenkins-cicd-pipeline') {
+                    bat "docker build -t ${APP_NAME}:${IMAGE_TAG} -t ${APP_NAME}:latest ."
+                }
             }
         }
 
