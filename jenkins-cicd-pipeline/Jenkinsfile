@@ -98,10 +98,10 @@ pipeline {
 
         stage('Verify deployment') {
             steps {
-                // Health check from inside the container using Jenkins native retry block
+                // Health check from inside the container using 127.0.0.1 to avoid localhost IPv6 resolution issues
                 retry(10) {
                     sleep(time: 2, unit: 'SECONDS')
-                    bat "docker exec ${APP_NAME} wget -qO- http://localhost:3000/health"
+                    bat "docker exec ${APP_NAME} wget -qO- http://127.0.0.1:3000/health"
                 }
                 echo "Deployment is healthy"
             }
