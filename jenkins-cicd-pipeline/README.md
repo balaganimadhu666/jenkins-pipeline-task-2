@@ -71,3 +71,4 @@ docker build -t jenkins-demo-app . && docker run -p 3000:3000 jenkins-demo-app
 
 ## Screenshots
 Add screenshots of the successful Jenkins build (Stage View) and the running app in a `screenshots/` folder.
+![App running](cicdpipelineimage)
